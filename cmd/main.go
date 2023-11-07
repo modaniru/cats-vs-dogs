@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/modaniru/bio-vue/cat-vs-dogs/internal/storage/rstorage"
-	"github.com/modaniru/bio-vue/cat-vs-dogs/internal/storage/server"
+	"github.com/modaniru/bio-vue/cat-vs-dogs/internal/server"
 	"github.com/redis/go-redis/v9"
 )
 

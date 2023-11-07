@@ -2,6 +2,8 @@ package rstorage
 
 import (
 	"context"
+	"errors"
+	"log"
 	"strconv"
 
 	"github.com/redis/go-redis/v9"
@@ -12,6 +14,21 @@ type redisStorage struct{
 }
 
 func NewRedisStorage(client *redis.Client) *redisStorage{
+	_, err := client.Get(context.Background(), "cat").Result()
+	if err != nil{
+		if !errors.Is(err, redis.Nil){
+			log.Fatal(err.Error())
+		}
+		client.Set(context.Background(), "cat", 0, 0)
+	}
+	_, err = client.Get(context.Background(), "dog").Result()
+	if err != nil{
+		if !errors.Is(err, redis.Nil){
+			log.Fatal(err.Error())
+		}
+		client.Set(context.Background(), "dog", 0, 0)
+	}
+	
 	return &redisStorage{client: client}
 }
 

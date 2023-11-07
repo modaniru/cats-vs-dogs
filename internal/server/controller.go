@@ -9,9 +9,16 @@ import (
 
 func (s *Server) InitRouter() *chi.Mux{
 	router := chi.NewRouter()
-	router.Get("/v1/{key}", s.GetValue)
-	router.Put("/v1/{key}", s.IncreaseValue)
-	router.Get("/v1", s.GetAll)
+	sub := chi.NewRouter()
+	{
+		sub.Get("/", s.GetAll)
+	}
+	r := sub.With(s.isAvailable)
+	{
+		r.Get("/{key}", s.GetValue)
+		r.Put("/{key}", s.IncreaseValue)
+	}
+	router.Mount("/v1", sub)
 	return router
 }
 
@@ -25,11 +32,13 @@ func (s *Server) GetValue(w http.ResponseWriter, r *http.Request){
 	value, err := s.MyStorage.Get(r.Context(), key)
 	if err != nil{
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	js, err := json.Marshal(GetValueResponse{Count: value})
 	if err != nil{
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	w.Write(js)
@@ -42,6 +51,7 @@ func (s *Server) IncreaseValue(w http.ResponseWriter, r *http.Request){
 	err := s.MyStorage.Increase(r.Context(), key)
 	if err != nil{
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -54,16 +64,19 @@ func (s *Server) GetAll(w http.ResponseWriter, r *http.Request){
 	cat, err := s.MyStorage.Get(r.Context(), "cat")
 	if err != nil{
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	dog, err := s.MyStorage.Get(r.Context(), "dog")
 	if err != nil{
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	js, err := json.Marshal(GetAllResponse{DogCount: dog, CatCount: cat})
 	if err != nil{
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	w.Write(js)
