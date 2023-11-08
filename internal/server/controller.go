@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -43,6 +44,7 @@ type ReadWebsocket struct {
 }
 
 var candidates = map[string]bool{"dog": true, "cat": true}
+var connections = map[*websocket.Conn]bool{}
 
 func (s *Server) Websocket(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -50,8 +52,12 @@ func (s *Server) Websocket(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	connections[conn] = true
 
-	defer conn.Close()
+	defer func() {
+		conn.Close()
+		delete(connections, conn)
+	}()
 
 	for {
 		candidate := &ReadWebsocket{}
@@ -72,23 +78,35 @@ func (s *Server) Websocket(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		cat, err := s.MyStorage.Get(r.Context(), "cat")
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+		res, err := s.GetAllValues(context.Background())
 
-		dog, err := s.MyStorage.Get(r.Context(), "dog")
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+		WriteToAllConnections(res)
+	}
+}
 
-		err = conn.WriteJSON(&GetAllResponse{CatCount: cat, DogCount: dog})
-		if err != nil {
-			log.Println(err.Error())
-			break
-		}
+func (s *Server) GetAllValues(ctx context.Context) (*GetAllResponse, error) {
+	cat, err := s.MyStorage.Get(ctx, "cat")
+	if err != nil {
+		return nil, err
+	}
+
+	dog, err := s.MyStorage.Get(ctx, "dog")
+	if err != nil {
+		return nil, err
+	}
+
+	return &GetAllResponse{CatCount: cat, DogCount: dog}, nil
+}
+
+func WriteToAllConnections(object interface{}) {
+	for key := range connections {
+		client := key
+		go func() {
+			err := client.WriteJSON(object)
+			if err != nil {
+				log.Println(err.Error())
+			}
+		}()
 	}
 }
 
