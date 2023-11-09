@@ -3,7 +3,9 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -17,12 +19,13 @@ func (s *Server) InitRouter() *chi.Mux {
 		sub.Get("/", s.GetAll)
 	}
 	r := sub.With(s.isAvailable)
+	r = r.With(s.DataChanged)
 	{
 		r.Get("/{key}", s.GetValue)
 		r.Put("/{key}", s.IncreaseValue)
 	}
-	router.HandleFunc("/w", s.Websocket)
 	router.Mount("/v1", sub)
+	router.HandleFunc("/w", s.Websocket)
 	return router
 }
 
@@ -53,34 +56,40 @@ func (s *Server) Websocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	connections[conn] = true
-
 	defer func() {
 		conn.Close()
 		delete(connections, conn)
 	}()
 
+	res, err := s.GetAllValues(context.Background())
+	if err != nil {
+		slog.Error(fmt.Errorf("disconect, error: %w", err).Error())
+		return
+	}
+
+	err = conn.WriteJSON(res)
+	if err != nil {
+		slog.Error(fmt.Errorf("disconect, error: %w", err).Error())
+		return
+	}
+
 	for {
-		candidate := &ReadWebsocket{}
-		err := conn.ReadJSON(&candidate)
+		_, _, err := conn.ReadMessage()
+
 		if err != nil {
-			log.Println(err.Error())
+			if websocket.IsCloseError(err, websocket.CloseNoStatusReceived) {
+				slog.Debug("close connection...")
+				break
+			}
+			slog.Error(fmt.Errorf("disconect, error: %w", err).Error())
 			break
 		}
 
-		if !candidates[candidate.Candidate] {
-			log.Println("candidate not found")
-			break
-		}
-
-		err = s.MyStorage.Increase(r.Context(), candidate.Candidate)
+		err = conn.WriteMessage(websocket.TextMessage, []byte("pong"))
 		if err != nil {
-			log.Println(err.Error())
+			slog.Error(fmt.Errorf("disconect, error: %w", err).Error())
 			break
 		}
-
-		res, err := s.GetAllValues(context.Background())
-
-		WriteToAllConnections(res)
 	}
 }
 
@@ -99,6 +108,7 @@ func (s *Server) GetAllValues(ctx context.Context) (*GetAllResponse, error) {
 }
 
 func WriteToAllConnections(object interface{}) {
+	slog.Debug(fmt.Sprintf("notify all clients. count: %d", len(connections)))
 	for key := range connections {
 		client := key
 		go func() {

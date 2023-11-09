@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"log"
+	"log/slog"
 	"net/http"
+	"os"
 
 	"github.com/modaniru/bio-vue/cat-vs-dogs/internal/server"
 	"github.com/modaniru/bio-vue/cat-vs-dogs/internal/storage/rstorage"
@@ -11,6 +13,8 @@ import (
 )
 
 func main() {
+	logger := slog.New(slog.NewTextHandler(os.Stdin, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	slog.SetDefault(logger)
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
 		Password: "",
