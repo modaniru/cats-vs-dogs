@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -29,5 +30,12 @@ func (s *Server) DataChanged(next http.Handler) http.Handler {
 		}
 
 		WriteToAllConnections(res)
+	})
+}
+
+func (s *Server) Test(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println(r.URL.RawQuery)
+		next.ServeHTTP(w, r)
 	})
 }

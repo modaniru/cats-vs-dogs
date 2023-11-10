@@ -26,10 +26,11 @@ func (s *Server) InitRouter() *chi.Mux {
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
 	sub := chi.NewRouter()
+	t := sub.With(s.Test)
 	{
-		sub.Get("/", s.GetAll)
+		t.Get("/", s.GetAll)
 	}
-	r := sub.With(s.isAvailable)
+	r := t.With(s.isAvailable)
 	r = r.With(s.DataChanged)
 	{
 		r.Get("/{key}", s.GetValue)
