@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -34,7 +35,7 @@ func (s *Server) DataChanged(next http.Handler) http.Handler {
 
 func (s *Server) Test(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		slog.Debug(r.URL.RawQuery)
+		slog.Debug(fmt.Sprintf("Req: %s %s\n", r.Host, r.URL.Path))
 		next.ServeHTTP(w, r)
 	})
 }
